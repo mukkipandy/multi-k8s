@@ -1,0 +1,66 @@
+name: Deploy MultiDocker
+on:
+  push:
+    branches:
+      - feature/* # Trigger build for feature branches
+      - master    # Trigger build and deploy when code is pushed to master
+  pull_request:
+    branches:
+      - master # Trigger build when PR is merged into master
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Log in to Docker Hub
+      - run: docker login -u ${{ secrets.DOCKER_USERNAME }} -p ${{ secrets.DOCKER_PASSWORD }}
+      - name: Build Docker image
+      - run: docker build -t mukkipandy/react-test -f ./client/Dockerfile.dev ./client
+      - name: Run tests
+      - run: docker run -e CI=true mukkipandy/react-test npm test
+
+      - run: docker build -t mukkipandy/multi-client ./client
+      - run: docker build -t mukkipandy/multi-nginx ./nginx
+      - run: docker build -t mukkipandy/multi-server ./server
+      - run: docker build -t mukkipandy/multi-worker ./worker
+
+      - run: docker push mukkipandy/multi-client
+      - run: docker push mukkipandy/multi-nginx
+      - run: docker push mukkipandy/multi-server
+      - run: docker push mukkipandy/multi-worker
+
+      - name: Generate deployment package
+        run: zip -r deploy.zip . -x '*.git*'
+
+      - name: Upload deployment package
+        uses: actions/upload-artifact@v3
+        with:
+          name: deploy-package
+          path: deploy.zip
+
+  deploy:
+    if: github.ref == 'refs/heads/master' && success() # Only on master branch and if build is successful
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Download deployment package
+        uses: actions/download-artifact@v3
+        with:
+          name: deploy-package
+
+      - name: Deploy to AWS Elastic Beanstalk
+        uses: einaregilsson/beanstalk-deploy@v18
+        with:
+          region: ap-south-1
+          aws_access_key: ${{ secrets.AWS_ACCESS_KEY }}
+          aws_secret_key: ${{ secrets.AWS_SECRET_KEY }}
+          application_name: multi-docker
+          environment_name: Multi-docker-env
+          existing_bucket_name: ${{ secrets.AWS_BUCKET_NAME }}
+          version_label: ${{ github.sha }}
+          deployment_package: deploy.zip

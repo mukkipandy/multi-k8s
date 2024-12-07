@@ -1,0 +1,50 @@
+version: "3"
+services:
+  postgres:
+    image: "postgres:latest"
+    mem_limit: 128m
+    environment:
+      - POSTGRES_PASSWORD=$PGPASSWORD
+  redis:
+    image: "redis:latest"
+    mem_limit: 128m
+  api:
+    depends_on:
+      - redis
+      - postgres
+    image: 'mukkipandy/multi-server'
+    mem_limit: 128m
+    hostname: api
+    environment:
+      - REDIS_HOST=$REDIS_HOST
+      - REDIS_PORT=$REDIS_PORT
+      - PGUSER=$PGUSER
+      - PGHOST=$PGHOST
+      - PGDATABASE=$PGDATABASE
+      - PGPASSWORD=$PGPASSWORD
+      - PGPORT=$PGPORT
+  client:
+    depends_on:
+      - api
+    image: 'mukkipandy/multi-client'
+    mem_limit: 128m
+    hostname: client
+  worker:
+    depends_on:
+      - redis 
+    image: 'mukkipandy/multi-worker'
+    mem_limit: 128m
+    hostname: worker
+    environment:
+      - REDIS_HOST=$REDIS_HOST
+      - REDIS_PORT=$REDIS_PORT
+  nginx:
+    depends_on:
+      - api
+      - client
+    restart: always
+    image: 'mukkipandy/multi-nginx'
+    mem_limit: 128m
+    hostname: nginx
+    ports:
+      - '80:80'
