@@ -69,9 +69,11 @@ jobs:
         run: |
           aws eks update-kubeconfig --region ap-south-1 --name multi-cluster
 
-      - name: Verify Kubernetes Access
+      - name: Clean up Kubernetes Resources
         run: |
-          kubectl get nodes
+          kubectl delete all --all -n default || true
+          kubectl delete pvc --all -n default || true
+          kubectl delete configmap --all -n default || true
 
       - name: Debug Kubernetes Config
         run: kubectl config view
@@ -82,3 +84,6 @@ jobs:
           kubectl set image deployments/server-deployment server=mukkipandy/multi-server-k8s-gh:${{ env.SHA }}
           kubectl set image deployments/client-deployment client=mukkipandy/multi-client-k8s-gh:${{ env.SHA }}
           kubectl set image deployments/worker-deployment worker=mukkipandy/multi-worker-k8s-gh:${{ env.SHA }}
+
+      - name: Verify Pods
+        run: kubectl get pods --all-namespaces
