@@ -16,7 +16,11 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: List Repository Files
+        run: ls -R         
 
       - name: Test
         run: |-
@@ -39,7 +43,7 @@ jobs:
 
           docker push mukkipandy/multi-client-k8s-gh:${{ env.SHA }}
           docker push mukkipandy/multi-server-k8s-gh:${{ env.SHA }}
-          docker push mukkipandy/multi-worker-k8s-gh:${{ env.SHA }}
+          docker push mukkipandy/multi-worker-k8s-gh:${{ env.SHA }}     
 
   deploy:
     needs: build
