@@ -53,12 +53,7 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v3
         with:
-          fetch-depth: 1 # Fetch only the latest commit
-      - name: Configure Sparse Checkout for k8s Directory
-        run: |
-          git sparse-checkout init
-          git sparse-checkout set k8s
-          git checkout HEAD
+          sparse-checkout: 'k8s/'
 
       - name: List Repository Files in deployment
         run: ls -R 
@@ -77,6 +72,9 @@ jobs:
       - name: Verify Kubernetes Access
         run: |
           kubectl get nodes
+
+      - name: Debug Kubernetes Config
+        run: kubectl config view
 
       - name: Deploy to EKS
         run: |-
