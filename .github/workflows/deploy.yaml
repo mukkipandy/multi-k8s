@@ -50,6 +50,12 @@ jobs:
     if: github.ref == 'refs/heads/master' && success()
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+        with:
+          # Fetch only the k8s directory
+          path: k8s
+          
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
