@@ -1,4 +1,5 @@
-name: Deploy MultiDocker
+name: Deploy MultiK8s
+
 on:
   push:
     branches:
@@ -8,59 +9,57 @@ on:
     branches:
       - master # Trigger build when PR is merged into master
 
+env:
+  SHA: $(git rev-parse HEAD)
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - name: Log in to Docker Hub
-        run: docker login -u ${{ secrets.DOCKER_USERNAME }} -p ${{ secrets.DOCKER_PASSWORD }}
-      - name: Build Docker image
-        run: docker build -t mukkipandy/react-test -f ./client/Dockerfile.dev ./client
-      - name: Run tests
-        run: docker run -e CI=true mukkipandy/react-test npm test
 
-      - run: docker build -t mukkipandy/multi-client ./client
-      - run: docker build -t mukkipandy/multi-nginx ./nginx
-      - run: docker build -t mukkipandy/multi-server ./server
-      - run: docker build -t mukkipandy/multi-worker ./worker
+      - name: Test
+        run: |-
+          docker login -u ${{ secrets.DOCKER_USERNAME }} -p ${{ secrets.DOCKER_PASSWORD }}
+          docker build -t mukkipandy/react-test -f ./client/Dockerfile.dev ./client
+          docker run -e CI=true mukkipandy/react-test npm test
 
-      - run: docker push mukkipandy/multi-client
-      - run: docker push mukkipandy/multi-nginx
-      - run: docker push mukkipandy/multi-server
-      - run: docker push mukkipandy/multi-worker
+      - name: Build
+        run: |-
+          docker build -t mukkipandy/multi-client-k8s-gh:latest -t mukkipandy/multi-client-k8s-gh:${{ env.SHA }} -f ./client/Dockerfile ./client
+          docker build -t mukkipandy/multi-server-k8s-gh:latest -t mukkipandy/multi-server-k8s-gh:${{ env.SHA }} -f ./server/Dockerfile ./server
+          docker build -t mukkipandy/multi-worker-k8s-gh:latest -t mukkipandy/multi-worker-k8s-gh:${{ env.SHA }} -f ./worker/Dockerfile ./worker
 
-      - name: Generate deployment package
-        run: zip -r deploy.zip . -x '*.git*'
+      - name: Push
+        if: success()
+        run: |-
+          docker push mukkipandy/multi-client-k8s-gh:latest
+          docker push mukkipandy/multi-server-k8s-gh:latest
+          docker push mukkipandy/multi-worker-k8s-gh:latest
 
-      - name: Upload deployment package
-        uses: actions/upload-artifact@v3
-        with:
-          name: deploy-package
-          path: deploy.zip
+          docker push mukkipandy/multi-client-k8s-gh:${{ env.SHA }}
+          docker push mukkipandy/multi-server-k8s-gh:${{ env.SHA }}
+          docker push mukkipandy/multi-worker-k8s-gh:${{ env.SHA }}
 
   deploy:
-    if: github.ref == 'refs/heads/master' && success() # Only on master branch and if build is successful
-    runs-on: ubuntu-latest
     needs: build
-
+    if: github.ref == 'refs/heads/master' && success()
+    runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-
-      - name: Download deployment package
-        uses: actions/download-artifact@v3
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v2
         with:
-          name: deploy-package
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_KEY }}
+          aws-region: ap-south-1
 
-      - name: Deploy to AWS Elastic Beanstalk
-        uses: einaregilsson/beanstalk-deploy@v18
-        with:
-          region: ap-south-1
-          aws_access_key: ${{ secrets.AWS_ACCESS_KEY }}
-          aws_secret_key: ${{ secrets.AWS_SECRET_KEY }}
-          application_name: multi-docker
-          environment_name: Multi-docker-env
-          existing_bucket_name: ${{ secrets.AWS_BUCKET_NAME }}
-          version_label: ${{ github.sha }}
-          deployment_package: deploy.zip
+      - name: Create EKS Cluster Kubeconfig
+        run: |
+          aws eks update-kubeconfig --region ap-south-1 --name multi-cluster
+
+      - name: Deploy to EKS
+        run: |-
+          kubectl apply -f k8s
+          kubectl set image deployments/server-deployment server=mukkipandy/multi-server-k8s-gh:${{ env.SHA }}
+          kubectl set image deployments/client-deployment client=mukkipandy/multi-client-k8s-gh:${{ env.SHA }}
+          kubectl set image deployments/worker-deployment worker=mukkipandy/multi-worker-k8s-gh:${{ env.SHA }}
