@@ -19,7 +19,7 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v3
 
-      - name: List Repository Files
+      - name: List Repository Files in build
         run: ls -R         
 
       - name: Test
@@ -60,6 +60,9 @@ jobs:
       - name: Create EKS Cluster Kubeconfig
         run: |
           aws eks update-kubeconfig --region ap-south-1 --name multi-cluster
+
+      - name: List Repository Files in deployment
+        run: ls -R 
 
       - name: Deploy to EKS
         run: |-
