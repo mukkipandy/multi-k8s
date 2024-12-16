@@ -65,18 +65,30 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_KEY }}
           aws-region: ap-south-1
 
-      - name: Create EKS Cluster Kubeconfig
-        run: |
-          aws eks update-kubeconfig --region ap-south-1 --name multi-cluster
-
-      - name: Clean up Kubernetes Resources
-        run: |
-          kubectl delete all --all -n default || true
-          kubectl delete pvc --all -n default || true
-          kubectl delete configmap --all -n default || true
-
       - name: Debug Kubernetes Config
         run: kubectl config view
+
+      - name: Update Kubeconfig
+        run: |
+          aws eks --region ap-south-1 update-kubeconfig --name multi-cluster
+
+      - name: Debug Kubernetes Cluster
+        run: |
+          kubectl cluster-info
+          kubectl get nodes
+          kubectl get storageclass
+
+      - name: Install AWS EBS CSI Driver
+        run: |
+          if ! kubectl get csidrivers | grep -q ebs.csi.aws.com; then
+            kubectl apply -k "github.com/kubernetes-sigs/aws-ebs-csi-driver/deploy/kubernetes/overlays/stable/ecr/?ref=release-1.13"
+          else
+            echo "EBS CSI driver already installed."
+          fi
+
+      - name: Clean Up Old Resources
+        run: |
+          kubectl delete deployments,services,ingress,pvc,configmap -l app=multi-app || true
 
       - name: Deploy to EKS
         run: |-
@@ -85,6 +97,17 @@ jobs:
           kubectl set image deployments/client-deployment client=mukkipandy/multi-client-k8s-gh:${{ env.SHA }}
           kubectl set image deployments/worker-deployment worker=mukkipandy/multi-worker-k8s-gh:${{ env.SHA }}
 
-      - name: Verify Pods
-        run: kubectl get pods --all-namespaces
-        
+      - name: Wait for Deployment to Stabilize
+        run: |
+          echo "Waiting for pods to stabilize..."
+          sleep 30
+
+      - name: Verify Pod Status
+        run: |
+          kubectl get pods --all-namespaces
+
+      - name: Verify Application Health
+        run: |
+          kubectl rollout status deployment/server-deployment
+          kubectl rollout status deployment/client-deployment
+          kubectl rollout status deployment/worker-deployment       
