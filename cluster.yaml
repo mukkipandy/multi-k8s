@@ -5,13 +5,18 @@ metadata:
   name: multi-cluster
   region: ap-south-1
 
+iam:
+  withOIDC: true # Enable OIDC to allow IAM roles for service accounts
+
+addons:
+  - name: aws-ebs-csi-driver
+    version: latest
+    attachPolicyARNs:
+      - arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy
+
 nodeGroups:
   - name: free-tier-nodes
     instanceType: t3.medium
     desiredCapacity: 2
     minSize: 1
     maxSize: 3
-    amiFamily: AmazonLinux2
-
-addons:
-  - name: aws-ebs-csi-driver
