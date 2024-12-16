@@ -17,6 +17,6 @@ addons:
 nodeGroups:
   - name: free-tier-nodes
     instanceType: t3.medium
-    desiredCapacity: 2
+    desiredCapacity: 1
     minSize: 1
-    maxSize: 3
+    maxSize: 1
