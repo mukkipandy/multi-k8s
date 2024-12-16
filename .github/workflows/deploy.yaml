@@ -78,14 +78,6 @@ jobs:
           kubectl get nodes
           kubectl get storageclass
 
-      - name: Install AWS EBS CSI Driver
-        run: |
-          if ! kubectl get csidrivers | grep -q ebs.csi.aws.com; then
-            kubectl apply -k "github.com/kubernetes-sigs/aws-ebs-csi-driver/deploy/kubernetes/overlays/stable/ecr/?ref=release-1.13"
-          else
-            echo "EBS CSI driver already installed."
-          fi
-
       - name: Clean Up Old Resources
         run: |
           kubectl delete deployments,services,ingress,pvc,configmap -l app=multi-app || true
