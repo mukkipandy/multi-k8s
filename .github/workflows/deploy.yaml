@@ -82,16 +82,6 @@ jobs:
         run: |
           kubectl delete deployments,services,ingress,pvc,configmap -l app=multi-app || true
 
-      - name: Install NGINX Ingress Controller
-        run: |
-          kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/cloud/deploy.yaml
-
-      - name: Wait for NGINX Ingress Controller to Be Ready
-        run: |
-          kubectl wait --namespace ingress-nginx \
-            --for=condition=Available deployment/ingress-nginx-controller \
-            --timeout=180s
-
       - name: Deploy to EKS
         run: |-
           kubectl apply -f k8s --validate=false
@@ -107,11 +97,6 @@ jobs:
       - name: Verify Pod Status
         run: |
           kubectl get pods --all-namespaces
-
-      - name: Verify Ingress
-        run: |
-          kubectl get ingress
-          kubectl describe ingress ingress-service
 
       - name: Verify Application Health
         run: |
