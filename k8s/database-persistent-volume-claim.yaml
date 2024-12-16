@@ -8,4 +8,4 @@ spec:
   resources:
     requests:
       storage: 2Gi
-  storageClassName: custom-gp2
+  storageClassName: my-custom-gp2

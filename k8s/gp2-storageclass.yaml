@@ -1,7 +1,7 @@
 apiVersion: storage.k8s.io/v1
 kind: StorageClass
 metadata:
-  name: custom-gp2
+  name: my-custom-gp2
 provisioner: ebs.csi.aws.com
 volumeBindingMode: Immediate
 parameters:
